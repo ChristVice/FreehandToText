@@ -1,0 +1,19 @@
+This is a handwriting/cursive writing to text application with high accuracy. It will serve as my senior project final where I will excercise and improve my artificial intelligence and frontend software abilities to create a reliable and fast app. I will use C++ for my fronend and Python for my backend where I will run the models using pytorch (still deciding).
+
+FRONTEND CHECKLIST ****************************
+
+Create cpp app that can draw
+App should be able to save the images somehow to seperate folder repo
+UX/UI should have one screen be for drawing and another that'll show the text
+Text should have copy paste feature (maybe some typing/editing also)
+
+
+BACKEND CHECKLIST ****************************
+
+Need to research what kind of model to use
+How will i get sample data for cursive to train a model?
+I need to know the accuracy rate i want to get for handwriting and cursive writing, both are separate percentages (they require different process)
+Will i need two different models? Would that be better? (we'll see when the cursive model is up and running)
+
+
+
