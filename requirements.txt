@@ -1,4 +1,0 @@
-flask
-torch
-opencv-python
-scikit-learn
