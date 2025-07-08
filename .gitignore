@@ -1,7 +1,9 @@
 .vscode/
+.venv/
 
 main
 myapp
 app
 
 *.sh
+.env

@@ -6,6 +6,9 @@
 #include <atomic>
 #include <mutex>
 
+#include <curl/curl.h>
+#include <string>
+
 std::vector<std::vector<sf::Vertex>> strokes;
 std::mutex strokesMutex;
 std::atomic<bool> running(true);
@@ -18,6 +21,36 @@ void processData() {
             if (apiRequestPending) {
                 // Simulate API request processing
                 std::lock_guard<std::mutex> lock(strokesMutex);
+
+
+                CURL *curl = curl_easy_init();
+                if(curl) {
+                    std::string url = std::string(std::getenv("API_URL") ? std::getenv("API_URL") : "http://localhost:8000") + "/prediction";
+
+                    CURLcode res;
+                    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+
+                    res = curl_easy_perform(curl);
+
+                    if(res != CURLE_OK) {
+                        std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+                    } 
+                    else {
+                        char *ct;
+                        /* ask for the content-type */
+                        res = curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &ct);
+                    
+                        if((CURLE_OK == res) && ct)
+                            printf("We received Content-Type: %s\n", ct);
+                        std::cout << typeid(res).name() << std::endl;
+                        // Simulate processing the response
+                        std::cout << "API request processed successfully." << std::endl;
+                    }
+
+                    curl_easy_cleanup(curl);
+                }
+
+
                 // Example: process strokes here
                 // (replace with your CNN-LSTM preprocessing logic)
                 if (!strokes.empty()) {
@@ -140,6 +173,7 @@ int main() {
 
     running = false;
     workingThread.join();
+    curl_global_cleanup();
     return 0;
 }
 
