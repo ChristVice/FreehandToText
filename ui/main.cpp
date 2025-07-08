@@ -8,59 +8,95 @@
 
 #include <curl/curl.h>
 #include <string>
+#include <nlohmann/json.hpp>
+
 
 std::vector<std::vector<sf::Vertex>> strokes;
+std::string predictionResult;
+
 std::mutex strokesMutex;
+std::mutex predictionMutex;
+
 std::atomic<bool> running(true);
-std::atomic<bool> apiRequestPending(true);
+std::atomic<bool> hasNewPrediction(true);
+
+
+// Function to get JSON response from readBuffer
+nlohmann::json getJsonResponse(const std::string& readBuffer) {
+    try {
+        return nlohmann::json::parse(readBuffer);
+    } catch (const nlohmann::json::parse_error& e) {
+        std::cerr << "JSON parse error: " << e.what() << std::endl;
+        return nlohmann::json();
+    }
+}
+
+
+// Callback function to write received data into a string
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+    ((std::string*)userp)->append((char*)contents, size * nmemb);
+    return size * nmemb;
+}
 
 // Function will POST to API and get response
 void processData() {
     while (running) {
         {
-            if (apiRequestPending) {
-                // Simulate API request processing
-                std::lock_guard<std::mutex> lock(strokesMutex);
+            // Simulate API request processing
+            std::lock_guard<std::mutex> lock(strokesMutex);
+            // Example: process strokes here
+            // (replace with your CNN-LSTM preprocessing logic)
+            if (!strokes.empty()) {
+                // Do something with strokes
+                std::cout << "Processing " << strokes.size() << " strokes." << std::endl;
+            }
+            else{
+                std::cout << "No strokes to process." << std::endl;
+            }
 
 
-                CURL *curl = curl_easy_init();
-                if(curl) {
-                    std::string url = std::string(std::getenv("API_URL") ? std::getenv("API_URL") : "http://localhost:8000") + "/prediction";
+            CURL *curl = curl_easy_init();
+            if(curl) {
+                std::string url = std::string(std::getenv("API_URL") ? std::getenv("API_URL") : "http://localhost:8000") + "/prediction";
 
-                    CURLcode res;
-                    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+                std::string readBuffer;
 
-                    res = curl_easy_perform(curl);
+                // setting up curl options, received data will be written to readBuffer
+                curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+                curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
 
-                    if(res != CURLE_OK) {
-                        std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
-                    } 
-                    else {
-                        char *ct;
-                        /* ask for the content-type */
-                        res = curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &ct);
+                CURLcode res = curl_easy_perform(curl);
+                if(res != CURLE_OK) {
+                    std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
                     
-                        if((CURLE_OK == res) && ct)
-                            printf("We received Content-Type: %s\n", ct);
-                        std::cout << typeid(res).name() << std::endl;
-                        // Simulate processing the response
-                        std::cout << "API request processed successfully." << std::endl;
+                } 
+                else {
+                    // Simulate processing the response
+                    nlohmann::json jsonResponse = getJsonResponse(readBuffer);
+                    if(!jsonResponse.empty()) {
+                        std::string message = jsonResponse.value("prediction", "No message in response");
+
+                        std::cout << "API request processed successfully. ";
+                        std::cout << "JSON message :: " << message << std::endl;
+
+                        {
+                            std::lock_guard<std::mutex> lock(predictionMutex);
+                            predictionResult = message;
+                            hasNewPrediction = true;
+                        }
+                    }
+                    else {
+                        std::cerr << "Received empty JSON response." << std::endl;
+                        hasNewPrediction = false;
                     }
 
-                    curl_easy_cleanup(curl);
                 }
 
-
-                // Example: process strokes here
-                // (replace with your CNN-LSTM preprocessing logic)
-                if (!strokes.empty()) {
-                    // Do something with strokes
-                    std::cout << "Processing " << strokes.size() << " strokes." << std::endl;
-                }
-                else{
-                    std::cout << "No strokes to process." << std::endl;
-                }
+                curl_easy_cleanup(curl);
             }
+
+
         }
     }
 }
@@ -69,7 +105,7 @@ int main() {
     const unsigned int WIN_WIDTH = 800;
     const unsigned int WIN_HEIGHT = 300;
 
-    sf::RenderWindow window(sf::VideoMode({WIN_WIDTH, WIN_HEIGHT}), "Freehand To Text");
+    sf::RenderWindow window(sf::VideoMode({WIN_WIDTH, WIN_HEIGHT}), "Freehand To Text", sf::Style::Close | sf::Style::Titlebar);
     sf::IntRect drawingArea({0, 0}, {WIN_WIDTH, WIN_HEIGHT / 2});
 
     std::vector<sf::Vertex> currentStroke;
@@ -148,6 +184,43 @@ int main() {
 
         // background color
         window.clear(sf::Color::Black);
+
+        // Color the DRAWING area background
+        sf::RectangleShape drawingBackground(sf::Vector2f(WIN_WIDTH, WIN_HEIGHT / 2));
+        drawingBackground.setPosition({0, 0});
+        drawingBackground.setFillColor(sf::Color(30, 30, 40)); // Dark blue-gray
+        window.draw(drawingBackground);
+
+        // Color the TEXT area background
+        sf::RectangleShape textBackground(sf::Vector2f(WIN_WIDTH, WIN_HEIGHT / 2));
+        textBackground.setPosition({0, WIN_HEIGHT / 2});
+        textBackground.setFillColor(sf::Color::White);
+        window.draw(textBackground);
+
+        // Display the prediction result
+        {
+            std::lock_guard<std::mutex> lock(predictionMutex);
+            if (hasNewPrediction) {
+                sf::Font font;
+
+                if (!font.openFromFile("assets/Futura.ttc")) // Replace "arial.ttf" with your font file path
+                {
+                    // Handle error if font loading fails
+                    // For example, print an error message and exit
+                    return -1;
+                }
+
+                sf::Text predictionText(font); // a font is required to make a text object
+                predictionText.setString(predictionResult);
+                predictionText.setCharacterSize(16);
+                predictionText.setFillColor(sf::Color::Black);
+
+                // ** needs to be centered in the text area, regardless of the text length
+                predictionText.setPosition({WIN_WIDTH / 2 - 20, WIN_HEIGHT / 2 + 10}); // Position in the text area
+                window.draw(predictionText);
+
+            }
+        }
 
         // draw the border
         sf::RectangleShape divider(sf::Vector2f(WIN_WIDTH, 2));
