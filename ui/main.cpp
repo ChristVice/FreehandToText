@@ -33,7 +33,6 @@ nlohmann::json getJsonResponse(const std::string& readBuffer) {
     }
 }
 
-
 // Callback function to write received data into a string
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
     ((std::string*)userp)->append((char*)contents, size * nmemb);
@@ -43,7 +42,7 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
 // Function will POST to API and get response
 void processData() {
 
-    while (running) {
+    while (running.load()) {
         {
             std::lock_guard<std::mutex> lock(strokesMutex);
 
@@ -51,25 +50,42 @@ void processData() {
             if (strokesChanged.load()) {
                 std::cout << "Update to strokes occurred :: " << strokes.size() << std::endl;
 
-                if (!strokes.empty()) {
-                    // Do something with strokes
-                    std::cout << "Processing " << strokes.size() << " strokes." << std::endl;
-                }
-                else{
-                    std::cout << "No strokes to process." << std::endl;
-                }
-
-
                 CURL *curl = curl_easy_init();
                 if(curl) {
                     std::string url = std::string(std::getenv("API_URL") ? std::getenv("API_URL") : "http://localhost:8000") + "/prediction";
+                    std::string postDataURL = std::string(std::getenv("API_URL") ? std::getenv("API_URL") : "http://localhost:8000") + "/data";
 
                     std::string readBuffer;
 
+                    /*
+                    for (const auto& stroke : strokes) {
+                        nlohmann::json strokeJson = nlohmann::json::array();
+                        for (const auto& vertex : stroke) {
+                            strokeJson.push_back({
+                                {"x", vertex.position.x},
+                                {"y", vertex.position.y}
+                            });
+                        }
+                        strokeData["strokes"].push_back(strokeJson);
+                    }
+                    */
+
+                    nlohmann::json strokeData;
+                    strokeData["strokes"] = nlohmann::json::array();
+                    strokeData["strokes"].push_back(strokes.size());
+                    
+                    std::string jsonString = strokeData.dump();
+
                     // setting up curl options, received data will be written to readBuffer
-                    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+                    curl_easy_setopt(curl, CURLOPT_URL, postDataURL.c_str());
+                    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonString.c_str()); // Set up CURL for POST request
                     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
                     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+
+                    // Set headers for JSON
+                    struct curl_slist *headers = NULL;
+                    headers = curl_slist_append(headers, "Content-Type: application/json");
+                    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
                     CURLcode res = curl_easy_perform(curl);
                     if(res != CURLE_OK) {
@@ -80,7 +96,7 @@ void processData() {
                         // Simulate processing the response
                         nlohmann::json jsonResponse = getJsonResponse(readBuffer);
                         if(!jsonResponse.empty()) {
-                            std::string message = jsonResponse.value("prediction", "No message in response");
+                            std::string message = jsonResponse.value("message", "No message in response");
 
                             std::cout << "API request processed successfully. ";
                             std::cout << "JSON message :: " << message << std::endl;
@@ -98,6 +114,7 @@ void processData() {
 
                     }
 
+                    curl_slist_free_all(headers);
                     curl_easy_cleanup(curl);
                 }
 
@@ -208,6 +225,10 @@ int main() {
         textBackground.setFillColor(sf::Color::White);
         window.draw(textBackground);
 
+        // Calculate center position in the text area
+        float textAreaCenterY = 3 * (WIN_HEIGHT / 4.0f);
+        float textAreaCenterX = WIN_WIDTH / 2.0f;
+
         // Display the prediction result
         {
             std::lock_guard<std::mutex> lock(predictionMutex);
@@ -226,8 +247,11 @@ int main() {
                 predictionText.setCharacterSize(16);
                 predictionText.setFillColor(sf::Color::Black);
 
+                 // Get the text bounds to calculate center position
+                sf::FloatRect textBounds = predictionText.getLocalBounds();
+                    
                 // ** needs to be centered in the text area, regardless of the text length
-                predictionText.setPosition({WIN_WIDTH / 2 - 20, WIN_HEIGHT / 2 + 10}); // Position in the text area
+                predictionText.setPosition({textAreaCenterX-textBounds.getCenter().x, textAreaCenterY-textBounds.getCenter().y}); // Position in the text area
                 window.draw(predictionText);
 
             }

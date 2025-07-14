@@ -14,7 +14,7 @@ async def root():
 async def predict_text():
     # This will call your AI processing function
     result = process_handwriting()
-    return {"prediction": result}
+    return {"message": result}
 
 @app.get("/data")
 async def get_data():
