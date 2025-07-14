@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include <SFML/Graphics.hpp>
 #include <vector>
 
@@ -19,9 +20,10 @@ std::mutex predictionMutex;
 
 std::atomic<bool> running(true);
 std::atomic<bool> hasNewPrediction(true);
+std::atomic<bool> strokesChanged(false);
 
 
-// Function to get JSON response from readBuffer
+// Function to get JSON response from readBuffer, returns JSON
 nlohmann::json getJsonResponse(const std::string& readBuffer) {
     try {
         return nlohmann::json::parse(readBuffer);
@@ -40,62 +42,68 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
 
 // Function will POST to API and get response
 void processData() {
+
     while (running) {
         {
-            // Simulate API request processing
             std::lock_guard<std::mutex> lock(strokesMutex);
-            // Example: process strokes here
-            // (replace with your CNN-LSTM preprocessing logic)
-            if (!strokes.empty()) {
-                // Do something with strokes
-                std::cout << "Processing " << strokes.size() << " strokes." << std::endl;
-            }
-            else{
-                std::cout << "No strokes to process." << std::endl;
-            }
 
+            // if strokes has changed
+            if (strokesChanged.load()) {
+                std::cout << "Update to strokes occurred :: " << strokes.size() << std::endl;
 
-            CURL *curl = curl_easy_init();
-            if(curl) {
-                std::string url = std::string(std::getenv("API_URL") ? std::getenv("API_URL") : "http://localhost:8000") + "/prediction";
-
-                std::string readBuffer;
-
-                // setting up curl options, received data will be written to readBuffer
-                curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-                curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
-
-                CURLcode res = curl_easy_perform(curl);
-                if(res != CURLE_OK) {
-                    std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
-                    
-                } 
-                else {
-                    // Simulate processing the response
-                    nlohmann::json jsonResponse = getJsonResponse(readBuffer);
-                    if(!jsonResponse.empty()) {
-                        std::string message = jsonResponse.value("prediction", "No message in response");
-
-                        std::cout << "API request processed successfully. ";
-                        std::cout << "JSON message :: " << message << std::endl;
-
-                        {
-                            std::lock_guard<std::mutex> lock(predictionMutex);
-                            predictionResult = message;
-                            hasNewPrediction = true;
-                        }
-                    }
-                    else {
-                        std::cerr << "Received empty JSON response." << std::endl;
-                        hasNewPrediction = false;
-                    }
-
+                if (!strokes.empty()) {
+                    // Do something with strokes
+                    std::cout << "Processing " << strokes.size() << " strokes." << std::endl;
+                }
+                else{
+                    std::cout << "No strokes to process." << std::endl;
                 }
 
-                curl_easy_cleanup(curl);
-            }
 
+                CURL *curl = curl_easy_init();
+                if(curl) {
+                    std::string url = std::string(std::getenv("API_URL") ? std::getenv("API_URL") : "http://localhost:8000") + "/prediction";
+
+                    std::string readBuffer;
+
+                    // setting up curl options, received data will be written to readBuffer
+                    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+                    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+                    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+
+                    CURLcode res = curl_easy_perform(curl);
+                    if(res != CURLE_OK) {
+                        std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+                        
+                    } 
+                    else {
+                        // Simulate processing the response
+                        nlohmann::json jsonResponse = getJsonResponse(readBuffer);
+                        if(!jsonResponse.empty()) {
+                            std::string message = jsonResponse.value("prediction", "No message in response");
+
+                            std::cout << "API request processed successfully. ";
+                            std::cout << "JSON message :: " << message << std::endl;
+
+                            {
+                                std::lock_guard<std::mutex> lock(predictionMutex);
+                                predictionResult = message;
+                                hasNewPrediction = true;
+                            }
+                        }
+                        else {
+                            std::cerr << "Received empty JSON response." << std::endl;
+                            hasNewPrediction = false;
+                        }
+
+                    }
+
+                    curl_easy_cleanup(curl);
+                }
+
+                strokesChanged.store(false);
+
+            }
 
         }
     }
@@ -146,6 +154,7 @@ int main() {
                     if (!currentStroke.empty()) {
                         std::lock_guard<std::mutex> lock(strokesMutex);
                         strokes.push_back(currentStroke);
+                        strokesChanged.store(true);
                     }
                     currentStroke.clear();
                 }
@@ -159,6 +168,7 @@ int main() {
                             std::lock_guard<std::mutex> lock(strokesMutex);
                             strokes.clear();
                             currentStroke.clear();
+                            strokesChanged.store(true);
                         }
                         break;
                     
@@ -167,6 +177,7 @@ int main() {
                             std::lock_guard<std::mutex> lock(strokesMutex);
                             if (!strokes.empty()) {
                                 strokes.pop_back();
+                                strokesChanged.store(true);
                             }
                         }
                         break;
@@ -200,13 +211,13 @@ int main() {
         // Display the prediction result
         {
             std::lock_guard<std::mutex> lock(predictionMutex);
-            if (hasNewPrediction) {
+            if (hasNewPrediction.load()) {
                 sf::Font font;
 
-                if (!font.openFromFile("assets/Futura.ttc")) // Replace "arial.ttf" with your font file path
+                if (!font.openFromFile("assets/Futura.ttc")) 
                 {
                     // Handle error if font loading fails
-                    // For example, print an error message and exit
+                    std::cerr << "Font not found" << std::endl;
                     return -1;
                 }
 
