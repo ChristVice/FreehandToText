@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <SFML/Graphics.hpp>
 #include <vector>
+#include "assets/Button.h"
 
 #include <thread>
 #include <atomic>
@@ -11,6 +12,14 @@
 #include <string>
 #include <nlohmann/json.hpp>
 
+
+const unsigned int WIN_WIDTH = 800;
+const unsigned int WIN_HEIGHT = 300;
+const sf::Color drawingBackgroundColor(0x2A, 0x2B, 0x30);
+const sf::Color textAreaBackgroundColor(0x50, 0x50, 0x50);
+const sf::Color dividerColor(0x00, 0x00, 0x00);
+const sf::Color textColor(sf::Color::White);
+sf::Font font;
 
 std::vector<std::vector<sf::Vertex>> strokes;
 std::string predictionResult;
@@ -127,14 +136,27 @@ void processData() {
 }
 
 int main() {
-    const unsigned int WIN_WIDTH = 800;
-    const unsigned int WIN_HEIGHT = 300;
 
     sf::RenderWindow window(sf::VideoMode({WIN_WIDTH, WIN_HEIGHT}), "Freehand To Text", sf::Style::Close | sf::Style::Titlebar);
     sf::IntRect drawingArea({0, 0}, {WIN_WIDTH, WIN_HEIGHT / 2});
 
     std::vector<sf::Vertex> currentStroke;
     bool drawing = false;
+
+    if (!font.openFromFile("assets/Futura.ttc")) 
+    {
+        // Handle error if font loading fails
+        std::cerr << "Font not found" << std::endl;
+        return -1;
+    }
+
+    float buttonWidth = 65;
+    float buttonHeight = 28;
+    float buttonsGap = 10;
+
+    Button undoButton(10.0f, WIN_HEIGHT / 2 + 10, 65, 28, "Undo [Z]", font);
+    Button clearButton(buttonWidth+buttonsGap+10.0f, WIN_HEIGHT / 2 + 10, 65, 28, "Clear [C]", font);
+    Button closeButton(2*(buttonWidth+buttonsGap)+10.0f, WIN_HEIGHT / 2 + 10, 65, 28, "Close [Esc]", font);
 
     // Start the data processing thread
     std::thread workingThread(processData);
@@ -152,6 +174,10 @@ int main() {
                     if (drawingArea.contains(mousePos)) {
                         currentStroke.clear();
                         drawing = true;
+                    }
+
+                    if(undoButton.isClicked(mousePos)){
+                        std::cout << "Button is clicked" << std::endl;
                     }
                 }
             }
@@ -216,14 +242,21 @@ int main() {
         // Color the DRAWING area background
         sf::RectangleShape drawingBackground(sf::Vector2f(WIN_WIDTH, WIN_HEIGHT / 2));
         drawingBackground.setPosition({0, 0});
-        drawingBackground.setFillColor(sf::Color(30, 30, 40)); // Dark blue-gray
+        drawingBackground.setFillColor(drawingBackgroundColor); // Dark blue-gray
         window.draw(drawingBackground);
 
         // Color the TEXT area background
         sf::RectangleShape textBackground(sf::Vector2f(WIN_WIDTH, WIN_HEIGHT / 2));
         textBackground.setPosition({0, WIN_HEIGHT / 2});
-        textBackground.setFillColor(sf::Color::White);
+        textBackground.setFillColor(textAreaBackgroundColor);
         window.draw(textBackground);
+
+
+        // Adding Z, C, Esc buttons
+        undoButton.draw(window);
+        clearButton.draw(window);
+        closeButton.draw(window);
+
 
         // Calculate center position in the text area
         float textAreaCenterY = 3 * (WIN_HEIGHT / 4.0f);
@@ -233,37 +266,25 @@ int main() {
         {
             std::lock_guard<std::mutex> lock(predictionMutex);
             if (hasNewPrediction.load()) {
-                sf::Font font;
-
-                if (!font.openFromFile("assets/Futura.ttc")) 
-                {
-                    // Handle error if font loading fails
-                    std::cerr << "Font not found" << std::endl;
-                    return -1;
-                }
-
                 sf::Text predictionText(font); // a font is required to make a text object
                 predictionText.setString(predictionResult);
                 predictionText.setCharacterSize(16);
-                predictionText.setFillColor(sf::Color::Black);
+                predictionText.setFillColor(textColor);
 
                  // Get the text bounds to calculate center position
                 sf::FloatRect textBounds = predictionText.getLocalBounds();
                     
-                // ** needs to be centered in the text area, regardless of the text length
-                predictionText.setPosition({textAreaCenterX-textBounds.getCenter().x, textAreaCenterY-textBounds.getCenter().y}); // Position in the text area
+                float textPositionX = std::round(textAreaCenterX-textBounds.getCenter().x);
+                float textPositionY = std::round(textAreaCenterY-textBounds.getCenter().y);
+
+                predictionText.setPosition({textPositionX, textPositionY}); // Position in the text area
+
                 window.draw(predictionText);
 
             }
         }
 
-        // draw the border
-        sf::RectangleShape divider(sf::Vector2f(WIN_WIDTH, 2));
-        divider.setPosition({0, WIN_HEIGHT / 2});
-        divider.setFillColor(sf::Color(100, 100, 100));
-        window.draw(divider);
-
-        // draw in the drawing area
+        // draw in the strokes to drawing area
         {
             std::lock_guard<std::mutex> lock(strokesMutex);
             for (const auto& stroke : strokes) {
@@ -272,7 +293,7 @@ int main() {
             }
         }
 
-        // draw remaining current stroke 
+        // draw remaining current stroke if avail 
         if (!currentStroke.empty())
             window.draw(&currentStroke[0], currentStroke.size(), sf::PrimitiveType::LineStrip);
 
