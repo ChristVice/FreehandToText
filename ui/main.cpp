@@ -177,7 +177,30 @@ int main() {
                     }
 
                     if(undoButton.isClicked(mousePos)){
-                        std::cout << "Button is clicked" << std::endl;
+                        undoButton.setPressed(true);
+                        std::cout << "Undo is clicked" << std::endl;
+                        {
+                            std::lock_guard<std::mutex> lock(strokesMutex);
+                            if (!strokes.empty()) {
+                                strokes.pop_back();
+                                strokesChanged.store(true);
+                            }
+                        }
+                    }
+                    else if(clearButton.isClicked(mousePos)){
+                        clearButton.setPressed(true);
+                        std::cout << "Clear is clicked" << std::endl;
+                        {
+                            std::lock_guard<std::mutex> lock(strokesMutex);
+                            strokes.clear();
+                            currentStroke.clear();
+                            strokesChanged.store(true);
+                        }
+                    }
+                    else if(closeButton.isClicked(mousePos)){
+                        closeButton.setPressed(true);
+                        std::cout << "Close is clicked" << std::endl;
+                        window.close();
                     }
                 }
             }
@@ -200,6 +223,10 @@ int main() {
                         strokesChanged.store(true);
                     }
                     currentStroke.clear();
+
+                    undoButton.setPressed(false);
+                    clearButton.setPressed(false);
+                    closeButton.setPressed(false);
                 }
             }
 

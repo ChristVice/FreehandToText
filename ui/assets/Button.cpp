@@ -1,3 +1,4 @@
+#include <iostream>
 #include <SFML/Graphics.hpp>
 #include <string>
 #include "Button.h"
@@ -42,7 +43,7 @@ void Button::draw(sf::RenderWindow& window) {
 }
 
 bool Button::isClicked(sf::Vector2i mousePos) {
-    return shape.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos));
+    return this->shape.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos));
 }
 
 bool Button::isHovering(sf::Vector2i mousePos) {
@@ -52,8 +53,8 @@ bool Button::isHovering(sf::Vector2i mousePos) {
 void Button::setPressed(bool pressed) {
     isPressed = pressed;
     if (pressed) {
-        shape.setFillColor(sf::Color(90, 90, 90));
+        this->shape.setFillColor(sf::Color(90, 90, 90));
     } else {
-        shape.setFillColor(sf::Color(70, 70, 70));
+        this->shape.setFillColor(sf::Color(70, 70, 70));
     }
 }

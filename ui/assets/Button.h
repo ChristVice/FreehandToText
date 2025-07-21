@@ -12,7 +12,8 @@ class Button {
         int cornerRadius;
 
     public:
-        Button(float x, float y, float width, float height, const std::string& buttonText, sf::Font& buttonFont);
+        Button(float x, float y, float width, float height,
+               const std::string& buttonText, sf::Font& buttonFont);
 
         void draw(sf::RenderWindow& window);
         bool isClicked(sf::Vector2i mousePos);
