@@ -5,27 +5,21 @@
 
 #include "Button.h"  // Include the header
 
-Button::Button(float x, float y, float width, float height, const std::string& buttonText, sf::Font& buttonFont) {
-    this->xPos = x;
-    this->yPos = y;
-    this->font = buttonFont;
-    this->buttonText = buttonText;
-    this->width = width;
-    this->height = height;
-
+Button::Button(float x, float y, float width, float height, const std::string& buttonText, sf::Font& buttonFont) 
+    : xPos(x), yPos(y), width(width), height(height), buttonText(buttonText), font(buttonFont), isPressed(false)
+{
     shape.setPosition({x, y});
     shape.setSize({width, height});
-    shape.setFillColor(sf::Color(70, 70, 70));
-    shape.setOutlineThickness(2);
-    shape.setOutlineColor(sf::Color(100, 100, 100));
-
+    shape.setFillColor(BUTTON_BKG_COLOR);
 }
 
-void Button::draw(sf::RenderWindow& window) {
+void Button::draw(sf::RenderWindow& window, sf::Color textColor, sf::Color highlightTextColor) {
     sf::Text text(font);
     text.setString(buttonText);
-    text.setCharacterSize(10);
-    text.setFillColor(sf::Color::White);
+    text.setCharacterSize(12);
+
+    if(this->isPressed) text.setFillColor(highlightTextColor);
+    else                text.setFillColor(textColor);
 
     sf::FloatRect shapeBounds = shape.getLocalBounds();
     sf::FloatRect textBounds = text.getLocalBounds();
@@ -33,10 +27,7 @@ void Button::draw(sf::RenderWindow& window) {
     float centeredX = xPos+shapeBounds.getCenter().x-textBounds.getCenter().x;
     float centeredY = yPos+shapeBounds.getCenter().y-textBounds.getCenter().y;
 
-    text.setPosition({
-        std::round(centeredX),
-        std::round(centeredY)
-    });
+    text.setPosition({ std::round(centeredX), std::round(centeredY) });
 
     window.draw(shape);
     window.draw(text);
@@ -51,10 +42,10 @@ bool Button::isHovering(sf::Vector2i mousePos) {
 }
 
 void Button::setPressed(bool pressed) {
-    isPressed = pressed;
-    if (pressed) {
-        this->shape.setFillColor(sf::Color(90, 90, 90));
-    } else {
-        this->shape.setFillColor(sf::Color(70, 70, 70));
-    }
+
+    this->isPressed = pressed;
+
+    if (pressed)    this->shape.setFillColor(BUTTON_BKG_HIGHLIGHT_COLOR);
+    else            this->shape.setFillColor(BUTTON_BKG_COLOR);
+    
 }

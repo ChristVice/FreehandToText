@@ -18,7 +18,7 @@ const unsigned int WIN_HEIGHT = 300;
 const sf::Color drawingBackgroundColor(0x2A, 0x2B, 0x30);
 const sf::Color textAreaBackgroundColor(0x50, 0x50, 0x50);
 const sf::Color dividerColor(0x00, 0x00, 0x00);
-const sf::Color textColor(sf::Color::White);
+const sf::Color predictedTextColor(sf::Color::White);
 sf::Font font;
 
 std::vector<std::vector<sf::Vertex>> strokes;
@@ -30,6 +30,19 @@ std::mutex predictionMutex;
 std::atomic<bool> running(true);
 std::atomic<bool> hasNewPrediction(true);
 std::atomic<bool> strokesChanged(false);
+
+namespace UI{
+    const float X_OFFSET = 10.0f;
+    const float Y_OFFSET = 10.0f;
+    const float BUTTON_WIDTH = 70.0f;
+    const float BUTTON_HEIGHT = 30.0f;
+    const float BUTTON_SPACING = 15.0f;
+
+    const sf::Color BUTTON_TEXT_COLOR(0x94, 0x95, 0x97);
+    const sf::Color BUTTON_TEXT_HIGHLIGHT_COLOR(0xD9, 0xD9, 0xD9);
+    const sf::Color BUTTON_BKG_COLOR{0x4B, 0x4B, 0x4C};
+    const sf::Color BUTTON_BKG_HIGHLIGHT_COLOR{0x43, 0x43, 0x45};
+}
 
 
 // Function to get JSON response from readBuffer, returns JSON
@@ -150,18 +163,33 @@ int main() {
         return -1;
     }
 
-    float buttonWidth = 65;
-    float buttonHeight = 28;
-    float buttonsGap = 10;
 
-    Button undoButton(10.0f, WIN_HEIGHT / 2 + 10, 65, 28, "Undo [Z]", font);
-    Button clearButton(buttonWidth+buttonsGap+10.0f, WIN_HEIGHT / 2 + 10, 65, 28, "Clear [C]", font);
-    Button closeButton(2*(buttonWidth+buttonsGap)+10.0f, WIN_HEIGHT / 2 + 10, 65, 28, "Close [Esc]", font);
+    Button undoButton(  UI::X_OFFSET, 
+                        WIN_HEIGHT / 2 + UI::Y_OFFSET, 
+                        UI::BUTTON_WIDTH, 
+                        UI::BUTTON_HEIGHT, 
+                        "Undo [Z]", 
+                        font);
+
+    Button clearButton( UI::BUTTON_WIDTH+UI::BUTTON_SPACING+UI::X_OFFSET,
+                        WIN_HEIGHT / 2 + UI::Y_OFFSET,
+                        UI::BUTTON_WIDTH, 
+                        UI::BUTTON_HEIGHT, 
+                        "Clear [C]", 
+                        font);
+
+    Button closeButton( 2*(UI::BUTTON_WIDTH+UI::BUTTON_SPACING)+UI::X_OFFSET,
+                        WIN_HEIGHT / 2 + UI::Y_OFFSET,
+                        UI::BUTTON_WIDTH,
+                        UI::BUTTON_HEIGHT,
+                        "Close [Esc]",
+                        font);
 
     // Start the data processing thread
     std::thread workingThread(processData);
 
     while (window.isOpen()) {
+
         while (const std::optional<sf::Event> event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()){
                 window.close();
@@ -280,9 +308,9 @@ int main() {
 
 
         // Adding Z, C, Esc buttons
-        undoButton.draw(window);
-        clearButton.draw(window);
-        closeButton.draw(window);
+        undoButton.draw(window, UI::BUTTON_TEXT_COLOR, UI::BUTTON_TEXT_HIGHLIGHT_COLOR);
+        clearButton.draw(window, UI::BUTTON_TEXT_COLOR, UI::BUTTON_TEXT_HIGHLIGHT_COLOR);
+        closeButton.draw(window, UI::BUTTON_TEXT_COLOR, UI::BUTTON_TEXT_HIGHLIGHT_COLOR);
 
 
         // Calculate center position in the text area
@@ -296,7 +324,7 @@ int main() {
                 sf::Text predictionText(font); // a font is required to make a text object
                 predictionText.setString(predictionResult);
                 predictionText.setCharacterSize(16);
-                predictionText.setFillColor(textColor);
+                predictionText.setFillColor(predictedTextColor);
 
                  // Get the text bounds to calculate center position
                 sf::FloatRect textBounds = predictionText.getLocalBounds();
