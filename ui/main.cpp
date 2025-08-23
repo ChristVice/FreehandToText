@@ -22,6 +22,7 @@ const sf::Color predictedTextColor(sf::Color::White);
 sf::Font font;
 
 std::vector<std::vector<sf::Vertex>> strokes;
+std::vector<sf::Vertex> currentStroke;
 std::string predictionResult;
 
 std::mutex strokesMutex;
@@ -37,11 +38,12 @@ namespace UI{
     const float BUTTON_WIDTH = 70.0f;
     const float BUTTON_HEIGHT = 30.0f;
     const float BUTTON_SPACING = 15.0f;
+    const float BUTTON_TXT_SIZE = 12.0f;
 
     const sf::Color BUTTON_TEXT_COLOR(0x94, 0x95, 0x97);
     const sf::Color BUTTON_TEXT_HIGHLIGHT_COLOR(0xD9, 0xD9, 0xD9);
-    const sf::Color BUTTON_BKG_COLOR{0x4B, 0x4B, 0x4C};
-    const sf::Color BUTTON_BKG_HIGHLIGHT_COLOR{0x43, 0x43, 0x45};
+
+    const float PREDICTED_TXT_SIZE = 16.0f;
 }
 
 
@@ -79,22 +81,18 @@ void processData() {
 
                     std::string readBuffer;
 
-                    /*
+                    nlohmann::json strokeData;
                     for (const auto& stroke : strokes) {
                         nlohmann::json strokeJson = nlohmann::json::array();
                         for (const auto& vertex : stroke) {
-                            strokeJson.push_back({
-                                {"x", vertex.position.x},
-                                {"y", vertex.position.y}
-                            });
+                            strokeJson.push_back({vertex.position.x, vertex.position.y});
+
                         }
                         strokeData["strokes"].push_back(strokeJson);
                     }
-                    */
-
-                    nlohmann::json strokeData;
-                    strokeData["strokes"] = nlohmann::json::array();
-                    strokeData["strokes"].push_back(strokes.size());
+                    strokeData["canvas_width"] = WIN_WIDTH;
+                    strokeData["canvas_height"] = WIN_HEIGHT / 2;
+                    
                     
                     std::string jsonString = strokeData.dump();
 
@@ -121,11 +119,11 @@ void processData() {
                             std::string message = jsonResponse.value("message", "No message in response");
 
                             std::cout << "API request processed successfully. ";
-                            std::cout << "JSON message :: " << message << std::endl;
+                            // std::cout << "JSON message :: " << message << std::endl;
 
                             {
                                 std::lock_guard<std::mutex> lock(predictionMutex);
-                                predictionResult = message;
+                                predictionResult = strokes.size();
                                 hasNewPrediction = true;
                             }
                         }
@@ -148,12 +146,29 @@ void processData() {
     }
 }
 
+void performUndo(){
+    std::lock_guard<std::mutex> lock(strokesMutex);
+
+    if (!strokes.empty()) { 
+        strokes.pop_back();
+        strokesChanged.store(true);
+    }
+
+}
+
+void performClear(){
+    std::lock_guard<std::mutex> lock(strokesMutex);
+    strokes.clear();
+    currentStroke.clear();
+    strokesChanged.store(true);
+
+}
+
 int main() {
 
     sf::RenderWindow window(sf::VideoMode({WIN_WIDTH, WIN_HEIGHT}), "Freehand To Text", sf::Style::Close | sf::Style::Titlebar);
     sf::IntRect drawingArea({0, 0}, {WIN_WIDTH, WIN_HEIGHT / 2});
 
-    std::vector<sf::Vertex> currentStroke;
     bool drawing = false;
 
     if (!font.openFromFile("assets/Futura.ttc")) 
@@ -207,23 +222,12 @@ int main() {
                     if(undoButton.isClicked(mousePos)){
                         undoButton.setPressed(true);
                         std::cout << "Undo is clicked" << std::endl;
-                        {
-                            std::lock_guard<std::mutex> lock(strokesMutex);
-                            if (!strokes.empty()) {
-                                strokes.pop_back();
-                                strokesChanged.store(true);
-                            }
-                        }
+                        performUndo();
                     }
                     else if(clearButton.isClicked(mousePos)){
                         clearButton.setPressed(true);
                         std::cout << "Clear is clicked" << std::endl;
-                        {
-                            std::lock_guard<std::mutex> lock(strokesMutex);
-                            strokes.clear();
-                            currentStroke.clear();
-                            strokesChanged.store(true);
-                        }
+                        performClear();
                     }
                     else if(closeButton.isClicked(mousePos)){
                         closeButton.setPressed(true);
@@ -262,22 +266,11 @@ int main() {
             else if(const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
                 switch(keyPressed->scancode) {
                     case sf::Keyboard::Scancode::C: // Clear strokes
-                        {
-                            std::lock_guard<std::mutex> lock(strokesMutex);
-                            strokes.clear();
-                            currentStroke.clear();
-                            strokesChanged.store(true);
-                        }
+                        performClear();
                         break;
                     
                     case sf::Keyboard::Scancode::Z: // Undo last stroke
-                        {
-                            std::lock_guard<std::mutex> lock(strokesMutex);
-                            if (!strokes.empty()) {
-                                strokes.pop_back();
-                                strokesChanged.store(true);
-                            }
-                        }
+                        performUndo();
                         break;
                     
                     case sf::Keyboard::Scancode::Escape: // Close window
@@ -308,9 +301,9 @@ int main() {
 
 
         // Adding Z, C, Esc buttons
-        undoButton.draw(window, UI::BUTTON_TEXT_COLOR, UI::BUTTON_TEXT_HIGHLIGHT_COLOR);
-        clearButton.draw(window, UI::BUTTON_TEXT_COLOR, UI::BUTTON_TEXT_HIGHLIGHT_COLOR);
-        closeButton.draw(window, UI::BUTTON_TEXT_COLOR, UI::BUTTON_TEXT_HIGHLIGHT_COLOR);
+        undoButton.draw(window, UI::BUTTON_TEXT_COLOR, UI::BUTTON_TEXT_HIGHLIGHT_COLOR, UI::BUTTON_TXT_SIZE);
+        clearButton.draw(window, UI::BUTTON_TEXT_COLOR, UI::BUTTON_TEXT_HIGHLIGHT_COLOR, UI::BUTTON_TXT_SIZE);
+        closeButton.draw(window, UI::BUTTON_TEXT_COLOR, UI::BUTTON_TEXT_HIGHLIGHT_COLOR, UI::BUTTON_TXT_SIZE);
 
 
         // Calculate center position in the text area
@@ -323,7 +316,7 @@ int main() {
             if (hasNewPrediction.load()) {
                 sf::Text predictionText(font); // a font is required to make a text object
                 predictionText.setString(predictionResult);
-                predictionText.setCharacterSize(16);
+                predictionText.setCharacterSize(UI::PREDICTED_TXT_SIZE);
                 predictionText.setFillColor(predictedTextColor);
 
                  // Get the text bounds to calculate center position
@@ -360,6 +353,7 @@ int main() {
     curl_global_cleanup();
     return 0;
 }
+
 
 
 

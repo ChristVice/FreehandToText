@@ -5,7 +5,7 @@
 class Button {
     private:
         sf::RectangleShape shape;
-        sf::Font font;
+        sf::Font* font;
         std::string buttonText;
         float xPos, yPos, width, height;
         bool isPressed;
@@ -18,7 +18,7 @@ class Button {
         Button(float x, float y, float width, float height,
                const std::string& buttonText, sf::Font& buttonFont);
 
-        void draw(sf::RenderWindow& window, sf::Color textColor, sf::Color highlightTextColor);
+        void draw(sf::RenderWindow& window, sf::Color textColor, sf::Color highlightTextColor, float textSize);
         bool isClicked(sf::Vector2i mousePos);
         bool isHovering(sf::Vector2i mousePos);
         void setPressed(bool pressed);

@@ -3,20 +3,18 @@
 #include <string>
 #include "Button.h"
 
-#include "Button.h"  // Include the header
-
 Button::Button(float x, float y, float width, float height, const std::string& buttonText, sf::Font& buttonFont) 
-    : xPos(x), yPos(y), width(width), height(height), buttonText(buttonText), font(buttonFont), isPressed(false)
+    : xPos(x), yPos(y), width(width), height(height), buttonText(buttonText), font(&buttonFont), isPressed(false)
 {
     shape.setPosition({x, y});
     shape.setSize({width, height});
     shape.setFillColor(BUTTON_BKG_COLOR);
 }
 
-void Button::draw(sf::RenderWindow& window, sf::Color textColor, sf::Color highlightTextColor) {
-    sf::Text text(font);
+void Button::draw(sf::RenderWindow& window, sf::Color textColor, sf::Color highlightTextColor, float textSize) {
+    sf::Text text(*font);
     text.setString(buttonText);
-    text.setCharacterSize(12);
+    text.setCharacterSize(textSize);
 
     if(this->isPressed) text.setFillColor(highlightTextColor);
     else                text.setFillColor(textColor);
