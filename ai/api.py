@@ -3,27 +3,13 @@ from fastapi.responses import JSONResponse
 import uvicorn
 
 import os
-import time
 from PIL import Image, ImageDraw
 
 app = FastAPI(title="Handwriting to Text API")
 
-stroke_data = {}
-
 @app.get("/")
 async def root():
     return {"message": "Handwriting to Text API is running"}
-
-@app.get("/prediction")
-async def predict_text():
-    # This will call your AI processing function
-    result = process_handwriting()
-    return {"message": result}
-
-@app.get("/data")
-async def get_data():
-    # Return the stroke data received
-    return JSONResponse(content={"status": "success", "data": stroke_data})
 
 @app.post("/data")
 async def post_data(data: dict):
@@ -40,133 +26,118 @@ async def post_data(data: dict):
     in the future,
     capture the response here and then return it as jsonresponse
     '''
-    stroke_data_to_png(data, "test_draw")
-
+    filepath = DataToImage(data, filename="test_draw", path="PreTrainedModels")
 
     print("Received data:", data)
     return JSONResponse(content={"status": "success", "message": f"Data received successfully: {data}"})
 
-def process_handwriting():
-    # Placeholder for your AI model processing
-    # This is where you'll add your CNN-LSTM model logic
-    return "this is a return statement from the ai model"
 
+# CLASS FOR TURNING POSTED DATA INTO AN IMAGE THAT SAVES TO DIRECTORY
+class DataToImage:
 
+    def __init__(self, data: dict, filename: str = "output_img", path: str = ""):
+        self.data = data
+        self.filename = filename
+        self.path = path
 
-
-# FUNCTIONS FOR TURNING POSTED DATA INTO AN IMAGE THAT SAVES TO DIRECTORY
-
-def draw_image(canvas: Image.Image, 
-                          strokes: list[list[tuple[int, int]]],
-                          stroke_color: str = "black",
-                          stroke_width: int = 3) -> Image.Image:
-    """
-    Draw strokes on the canvas.
-    
-    Args:
-        canvas: PIL Image to draw on
-        strokes: List of stroke paths (each stroke is list of (x,y) points)
-        stroke_color: Color of the strokes
-        stroke_width: Width of the stroke lines
+        self.stroke_data_to_png()
         
-    Returns:
-        PIL Image with strokes drawn
-    """
-    draw = ImageDraw.Draw(canvas)
 
-    for stroke in strokes:
-        if len(stroke) < 2:
-            continue  # Skip single points
+    def stroke_data_to_png(self) -> str:
+        """
+        Convert stroke data to PNG file.
+            
+        Returns:
+            Path to the saved PNG file
+        """
         
-        # Draw lines between consecutive points
-        for i in range(len(stroke) - 1):
-            start_point = stroke[i]
-            end_point = stroke[i + 1]
-            draw.line([start_point, end_point], fill=stroke_color, width=stroke_width)
-    
-    return canvas
-
-def process_strokes_to_image(data: dict) -> Image.Image:
-    """
-    Main function to convert stroke data to PIL Image.
-    
-    Args:
-        data: Raw stroke data from API
+        # Process strokes to image
+        image = self.process_strokes_to_image()
         
-    Returns:
-        PIL Image with drawn strokes
-    """
-    # Parse data
-    canvas_width = data.get("canvas_width", 800)
-    canvas_height = data.get("canvas_height", 600)
-    strokes = data.get("strokes", [])
-    
-    # Create canvas
-    canvas = Image.new(mode="RGB", size=(canvas_width, canvas_height), color="white")
-    
-    # Draw strokes
-    image_with_strokes = draw_image(canvas, strokes)
-    
-    return image_with_strokes
-
-def save_image_as_png(image: Image.Image, 
-                      filename: str = "handwriting_temp.png",
-                      output_dir: str = None) -> str:
-    """
-    Save PIL Image as PNG file.
-
-    Args:
-        image: PIL Image to save
-        filename: Name of the output file
-        output_dir: Directory to save the file (defaults to current project folder)
-
-    Returns:
-        Full path to the saved file
-    """
-    # Use current working directory if output_dir is None
-    if output_dir is None:
-        output_dir = os.getcwd()
-
-    # Ensure output directory exists
-    os.makedirs(output_dir, exist_ok=True)
-
-    # Full path
-    filepath = os.path.join(output_dir, filename)
-
-    # Save image
-    image.save(filepath, "PNG")
-
-    return filepath
-
-def stroke_data_to_png(data: dict, 
-                      output_filename: str = None,
-                      output_dir: str = None) -> str:
-    """
-    Convert stroke data to PNG file.
-    
-    Args:
-        data: Stroke data from API
-        output_filename: Custom filename, (if None then name is handwriting.png)
-        output_dir: Directory to save the PNG
+        # Save as PNG
+        png_path = self.save_image_as_png(image)
         
-    Returns:
-        Path to the saved PNG file
-    """
-    # Generate filename if not provided
-    if output_filename is None:
-        output_filename = "handwriting.png"
-    
-    # Process strokes to image
-    image = process_strokes_to_image(data)
-    
-    # Use current working directory if output_dir is None
-    if output_dir is None:
-        output_dir = os.path.join(os.getcwd(), "PreTrainedModels")
+        return png_path
 
-    # Save as PNG
-    png_path = save_image_as_png(image, output_filename+".png", output_dir)
-    
-    return png_path
+    def process_strokes_to_image(self) -> Image.Image:
+        """
+        Main function to convert stroke data to PIL Image.
+
+        Returns:
+            PIL Image with drawn strokes
+        """
+        # Parse data
+        canvas_width = self.data.get("canvas_width", 800)
+        canvas_height = self.data.get("canvas_height", 600)
+        strokes = self.data.get("strokes", [])
+        
+        # Create canvas
+        canvas = Image.new(mode="RGB", size=(canvas_width, canvas_height), color="white")
+        
+        # Draw strokes
+        image_with_strokes = self.draw_image(canvas, strokes)
+        
+        return image_with_strokes
+
+    def draw_image(self, canvas: Image.Image, 
+                            strokes: list[list[tuple[int, int]]],
+                            stroke_color: str = "black",
+                            stroke_width: int = 3) -> Image.Image:
+        """
+        Draw strokes on the canvas.
+        
+        Args:
+            canvas: PIL Image to draw on
+            strokes: List of stroke paths (each stroke is list of (x,y) points)
+            stroke_color: Color of the strokes
+            stroke_width: Width of the stroke lines
+            
+        Returns:
+            PIL Image with strokes drawn
+        """
+        draw = ImageDraw.Draw(canvas)
+
+        for stroke in strokes:
+            if len(stroke) < 2:
+                continue  # Skip single points
+            
+            # Draw lines between consecutive points
+            for i in range(len(stroke) - 1):
+                start_point = stroke[i]
+                end_point = stroke[i + 1]
+                draw.line([start_point, end_point], fill=stroke_color, width=stroke_width)
+        
+        return canvas
+
+    def save_image_as_png(self, 
+                        image: Image.Image) -> str:
+        """
+        Save PIL Image as PNG file.
+
+        Args:
+            image: PIL Image to save
+
+        Returns:
+            Full path to the saved file
+        """
+        # Generate filename if not provided
+        if self.filename is None:
+            self.filename = "output_img.png"
+
+        # Use current working directory
+        output_dir = os.path.join(os.getcwd(), self.path)
+
+        # Ensure output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Full path
+        filepath = os.path.join(output_dir, self.filename+".png")
+
+        # Save image
+        image.save(filepath, "PNG")
+
+        return filepath
+
 
 
 

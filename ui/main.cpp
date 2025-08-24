@@ -76,7 +76,6 @@ void processData() {
 
                 CURL *curl = curl_easy_init();
                 if(curl) {
-                    std::string url = std::string(std::getenv("API_URL") ? std::getenv("API_URL") : "http://localhost:8000") + "/prediction";
                     std::string postDataURL = std::string(std::getenv("API_URL") ? std::getenv("API_URL") : "http://localhost:8000") + "/data";
 
                     std::string readBuffer;
