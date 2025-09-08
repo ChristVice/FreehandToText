@@ -7,3 +7,5 @@ Pillow
 numpy
 scikit-learn
 matplotlib
+tensorflow
+tensorflow_datasets
