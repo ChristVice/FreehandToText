@@ -34,14 +34,15 @@ async def post_data(data: dict):
     }
 
     try:
-        user_image = DataToImages(size=[data.get("canvas_width", 256), data.get("canvas_height", 64)], 
-                            data=data, 
-                            filename="handwriting", 
-                            path="PreTrainedModels", 
-                            resize=[model_input_parameters["width"], model_input_parameters["height"]], 
-                            save=True)
+        user_image = DataToImages(  size=[data.get("canvas_width", model_input_parameters["width"]), data.get("canvas_height", model_input_parameters["height"])], 
+                                    data=data, 
+                                    filename="handwriting", 
+                                    path="PreTrainedModels", 
+                                    resize=[model_input_parameters["width"], model_input_parameters["height"]], 
+                                    save=True
+                                 )
 
-        print("Received data:", data)
+        # print("Received data:", data)
 
         img_arr = np.array(user_image)
         img_arr = img_arr.reshape(1, model_input_parameters["height"], model_input_parameters["width"], 1)  # Add batch and channel dimensions
