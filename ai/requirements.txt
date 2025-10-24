@@ -9,3 +9,4 @@ scikit-learn
 matplotlib
 tensorflow
 tensorflow_datasets
+jiwer

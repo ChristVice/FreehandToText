@@ -7,3 +7,20 @@ app
 
 *.sh
 .env
+
+*.h5
+*.keras
+*.weights.h5
+
+**/__pycache__/
+*.pyc
+
+*.png
+*.jpg
+handwriting.*
+
+.venv/
+venv/
+env/
+
+.DS_Store

@@ -115,14 +115,14 @@ void processData() {
                         // Simulate processing the response
                         nlohmann::json jsonResponse = getJsonResponse(readBuffer);
                         if(!jsonResponse.empty()) {
-                            std::string message = jsonResponse.value("message", "No message in response");
+                            std::string model_prediction = jsonResponse.value("prediction", " ");
 
                             std::cout << "API request processed successfully. ";
-                            // std::cout << "JSON message :: " << message << std::endl;
+                            std::cout << "JSON message :: " << model_prediction << std::endl;
 
                             {
                                 std::lock_guard<std::mutex> lock(predictionMutex);
-                                predictionResult = strokes.size();
+                                predictionResult = model_prediction;
                                 hasNewPrediction = true;
                             }
                         }
