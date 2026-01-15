@@ -22,12 +22,15 @@ async def post_data(data: dict):
     # For example, you might save it or pass it to your AI model
 
     '''
+    sample data
+
     data
     {'canvas_height': 150, 
      'canvas_width': 800, 
      'strokes': [[[262.0, 78.0], [262.0, 78.0], [263.0, 78.0], [263.0, 78.0], [263.0, 78.0], [263.0, 78.0], [264.0, 78.0], [264.0, 78.0], [264.0, 78.0]]]
     }
     '''
+
     model_input_parameters = {
         "height" : 64,
         "width" : 256
@@ -41,8 +44,6 @@ async def post_data(data: dict):
                                     resize=[model_input_parameters["width"], model_input_parameters["height"]], 
                                     save=True
                                  )
-
-        # print("Received data:", data)
 
         img_arr = np.array(user_image)
         img_arr = img_arr.reshape(1, model_input_parameters["height"], model_input_parameters["width"], 1)  # Add batch and channel dimensions
